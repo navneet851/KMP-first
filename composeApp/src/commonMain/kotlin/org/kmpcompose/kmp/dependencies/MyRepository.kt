@@ -4,7 +4,9 @@ interface MyRepository {
     fun printName() : String
 }
 
-class MyRepositoryImpl : MyRepository{
+class MyRepositoryImpl(
+    private val db : DbConnect
+) : MyRepository{
     override fun printName(): String {
         return "Navneet Yadav"
     }
