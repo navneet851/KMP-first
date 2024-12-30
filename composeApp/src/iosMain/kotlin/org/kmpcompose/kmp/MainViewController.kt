@@ -11,8 +11,13 @@ fun MainViewController() = ComposeUIViewController(
     configure = {
         initKoin()
     }
-) { App(
-    client = remember {
-        CensorClient(createHttpClient(Darwin.create()))
-    }
-) }
+) {
+    App(
+        client = remember {
+            CensorClient(createHttpClient(Darwin.create()))
+        },
+        pref = remember {
+            createDataStore()
+        }
+    )
+}
