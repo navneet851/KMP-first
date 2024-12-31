@@ -19,9 +19,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import dev.icerock.moko.permissions.PermissionState
+import dev.icerock.moko.permissions.compose.BindEffect
+import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -42,6 +46,19 @@ import org.koin.core.annotation.KoinExperimentalAPI
 @Preview
 fun App(client : CensorClient, pref : DataStore<Preferences>) {
     MaterialTheme {
+        val factory = rememberPermissionsControllerFactory()
+        val controller = remember(factory){
+            factory.createPermissionsController()
+        }
+        BindEffect(controller)
+        val permissionViewModel = viewModel {
+            PermissionViewModel(controller)
+        }
+
+
+
+
+
         val viewModel = koinViewModel<MyViewModel>()
         val navController = rememberNavController()
         NavHost(navController, startDestination = "home"){
@@ -72,6 +89,32 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
                     Column(
                         verticalArrangement = Arrangement.Center
                     ) {
+                        when(permissionViewModel.state){
+                            PermissionState.Granted -> {
+                                Text("audio permission granted")
+                            }
+                            PermissionState.DeniedAlways -> {
+                                Text("audio permission permanently denied")
+                                Button(
+                                    onClick = {
+                                        controller.openAppSettings()
+                                    }
+                                ){
+                                    Text("open app settings")
+                                }
+                            }
+                            else -> {
+                                Button(
+                                    onClick = {
+                                        permissionViewModel.provideOrRequestAudioPermission()
+                                    }
+                                ){
+                                    Text("Request Audio Permission")
+                                }
+                            }
+                        }
+
+
                         Button(
                             onClick = {
                                 scope.launch {
