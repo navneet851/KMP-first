@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -31,8 +33,15 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 import kmp.composeapp.generated.resources.Res
 import kmp.composeapp.generated.resources.compose_multiplatform
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.format.char
+import kotlinx.datetime.toLocalDateTime
 import org.kmpcompose.kmp.dependencies.MyViewModel
 import org.kmpcompose.kmp.networking.CensorClient
 import org.kmpcompose.kmp.util.NetworkError
@@ -41,13 +50,18 @@ import org.kmpcompose.kmp.util.onSuccess
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.annotation.KoinExperimentalAPI
 
+data class City(
+    val name: String,
+    val timeZone: TimeZone
+)
+
 @OptIn(KoinExperimentalAPI::class)
 @Composable
 @Preview
-fun App(client : CensorClient, pref : DataStore<Preferences>) {
+fun App(client: CensorClient, pref: DataStore<Preferences>) {
     MaterialTheme {
         val factory = rememberPermissionsControllerFactory()
-        val controller = remember(factory){
+        val controller = remember(factory) {
             factory.createPermissionsController()
         }
         BindEffect(controller)
@@ -56,13 +70,35 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
         }
 
 
+        val cities = remember {
+            listOf(
+                City("Paris", TimeZone.of("Europe/Paris")),
+                City("London", TimeZone.of("Europe/London")),
+                City("Madrid", TimeZone.of("Europe/Madrid")),
+//                City("New Delhi", TimeZone.of("Asia/New_Delhi"))
+            )
+        }
+        var cityTimes by remember {
+            mutableStateOf(
+                listOf<Pair<City, LocalDateTime>>()
+            )
+        }
 
+        LaunchedEffect(true){
+            while (true){
+                cityTimes = cities.map {
+                    val now = Clock.System.now()
+                    it to now.toLocalDateTime(it.timeZone)
+                }
+                delay(1000)
+            }
+        }
 
 
         val viewModel = koinViewModel<MyViewModel>()
         val navController = rememberNavController()
-        NavHost(navController, startDestination = "home"){
-            composable("home"){
+        NavHost(navController, startDestination = "home") {
+            composable("home") {
                 var text by remember {
                     mutableStateOf("")
                 }
@@ -70,7 +106,7 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
                     mutableStateOf<String?>(null)
                 }
                 var error by remember {
-                    mutableStateOf< NetworkError?>(null)
+                    mutableStateOf<NetworkError?>(null)
                 }
                 val scope = rememberCoroutineScope()
 
@@ -82,33 +118,51 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
                     }
                     .collectAsState(0)
                 Box(
-                    contentAlignment = Alignment.Center,
+//                    contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize()
-                ){
+                ) {
                     Text(counter.toString())
+                    LazyColumn {
+                        items(cityTimes){(city, dateTime) ->
+                            Text("City $city")
+                            Text(
+                                "Time ${dateTime.format(
+                                    LocalDateTime.Format { 
+                                        hour()
+                                        char(':')
+                                        minute()
+                                        char(':')
+                                        second()
+                                    }
+                                )}"
+                            )
+                        }
+                    }
                     Column(
                         verticalArrangement = Arrangement.Center
                     ) {
-                        when(permissionViewModel.state){
+                        when (permissionViewModel.state) {
                             PermissionState.Granted -> {
                                 Text("audio permission granted")
                             }
+
                             PermissionState.DeniedAlways -> {
                                 Text("audio permission permanently denied")
                                 Button(
                                     onClick = {
                                         controller.openAppSettings()
                                     }
-                                ){
+                                ) {
                                     Text("open app settings")
                                 }
                             }
+
                             else -> {
                                 Button(
                                     onClick = {
                                         permissionViewModel.provideOrRequestAudioPermission()
                                     }
-                                ){
+                                ) {
                                     Text("Request Audio Permission")
                                 }
                             }
@@ -125,7 +179,7 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
                                 }
                             }
 
-                        ){
+                        ) {
                             Text("increment")
                         }
                         Text(
@@ -153,14 +207,14 @@ fun App(client : CensorClient, pref : DataStore<Preferences>) {
                                         }
                                 }
                             }
-                        ){
+                        ) {
                             Text("censor")
                         }
 
-                        result?.let{
+                        result?.let {
                             Text(it)
                         }
-                        error?.let{
+                        error?.let {
                             Text(
                                 text = it.name,
                                 color = Color.Red
